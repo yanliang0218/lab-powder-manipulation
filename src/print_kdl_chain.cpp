@@ -1,6 +1,15 @@
+
+/**********************************************************************************
+Project: Lab Powder Manipulation 
+Name: print_kdl_chain.cpp
+Author: Liang Yan
+Purpose: prints the structure of a KDL chain
+Description: takes in a URDF file, parses it into a KDL tree, extracts a KDL chain between specified links,
+             and prints the chain structure, including segments, joints, and joint axes.
+**********************************************************************************/
+
 #include <iostream>
 #include <string>
-
 #include <kdl/tree.hpp>
 #include <kdl/chain.hpp>
 #include <kdl/segment.hpp>

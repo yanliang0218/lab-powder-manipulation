@@ -63,7 +63,8 @@ Visualization Manager:
         Value: /robot_description
       Enabled: true
       Links:
-        All Links Enabled: true
+        All Links Enabled:
+          {}
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
@@ -72,57 +73,50 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         high_link_2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         high_link_3:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         high_link_4:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         low_link_1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         low_link_2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         low_link_3:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         low_link_4:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
-        wrist_1_link:
+        tip_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
-        wrist_2_link:
+        wrist_link_1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
-        wrist_3_link:
+        wrist_link_2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
+        wrist_link_3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
       Mass Properties:
         Inertia: false
         Mass: false

@@ -1,15 +1,6 @@
-
-/**********************************************************************************
-Project: Lab Powder Manipulation 
-Name: print_kdl_chain.cpp
-Author: Liang Yan
-Purpose: prints the structure of a KDL chain
-Description: takes in a URDF file, parses it into a KDL tree, extracts a KDL chain between specified links,
-             and prints the chain structure, including segments, joints, and joint axes.
-**********************************************************************************/
-
 #include <iostream>
 #include <string>
+
 #include <kdl/tree.hpp>
 #include <kdl/chain.hpp>
 #include <kdl/segment.hpp>
@@ -23,7 +14,7 @@ int main(int argc, char** argv)
         std::cerr << "Example:" << std::endl;
         std::cerr << "  print_kdl_chain "
                   << "/home/stephen/ros2_ws/src/arm_v2_description/urdf/Arm_V2_edited_2.urdf "
-                  << "base_link wrist_3_link" << std::endl;
+                  << "base_link tip_link" << std::endl;
         return 1;
     }
 

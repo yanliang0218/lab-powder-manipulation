@@ -66,7 +66,7 @@ public:
         but using parameters allows for direct editing in terminal
         */
         this->fixed_frame_ = this->declare_parameter<string> ("fixed_frame","base_link");
-        this->target_frame_ = this->declare_parameter<string> ("target_frame","wrist_3_link");
+        this->target_frame_ = this->declare_parameter<string> ("target_frame","tip_link");
         this->sampling_period_ = this->declare_parameter<double> ("sampling_period",0.05);
 
         // RCLCPP_INFO(this->get_logger(), "fixed_frame: %s", this->fixed_frame_.c_str());

@@ -94,7 +94,7 @@ int main()
         "/home/stephen/ros2_ws/src/arm_v2_description/urdf/Arm_V2_edited_2.urdf";
 
     std::string base_link = "base_link";
-    std::string tip_link = "wrist_3_link";
+    std::string tip_link = "tip_link";
 
     KDL::Tree tree;
 

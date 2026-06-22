@@ -1,15 +1,6 @@
-
-/**********************************************************************************
-Project: Lab Powder Manipulation 
-Name: print_kdl_tree.cpp
-Author: Liang Yan
-Purpose: prints the structure of a KDL tree
-Description: takes in a URDF file, parses it into a KDL tree, and prints the tree structure,
-             including segments, joints, and joint axes.
-**********************************************************************************/
-
 #include <iostream>
 #include <string>
+
 #include <kdl/tree.hpp>
 #include <kdl/segment.hpp>
 #include <kdl/joint.hpp>

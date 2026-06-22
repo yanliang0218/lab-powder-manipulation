@@ -3,21 +3,21 @@
      Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
      For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 <robot
-  name="Arm_V2_edited_2">
+  name="Arm_V2_urdf_with_fixed_joint">
   <link
     name="base_link">
     <inertial>
       <origin
-        xyz="1.52458933124577E-17 1.33661250755351E-17 0.0106432976711327"
+        xyz="1.47939270327707E-17 1.3695755120226E-17 0.0106432976711327"
         rpy="0 0 0" />
       <mass
         value="0.485324616622544" />
       <inertia
         ixx="0.000983593189232418"
-        ixy="1.00709239578331E-19"
-        ixz="2.15067544368474E-20"
+        ixy="1.00683390184189E-19"
+        ixz="2.77505727704201E-20"
         iyy="0.000983593189232418"
-        iyz="6.38958084801906E-21"
+        iyz="2.50791317404449E-20"
         izz="0.00182829474382764" />
     </inertial>
     <visual>
@@ -48,16 +48,16 @@
     name="low_link_1">
     <inertial>
       <origin
-        xyz="-0.00216127407243594 -2.55597707204792E-09 0.0619021996213665"
+        xyz="-0.00216127407243594 -2.55597707139429E-09 0.0619021996213665"
         rpy="0 0 0" />
       <mass
         value="0.331748728549887" />
       <inertia
         ixx="0.000222513336706059"
-        ixy="7.06673152972853E-11"
+        ixy="7.06673152969544E-11"
         ixz="2.2773656482742E-05"
         iyy="0.000293275789814223"
-        iyz="1.14271346884556E-11"
+        iyz="1.14271346812559E-11"
         izz="0.000227891108518889" />
     </inertial>
     <visual>
@@ -112,10 +112,10 @@
         value="0.110507990252835" />
       <inertia
         ixx="0.000352705009978739"
-        ixy="-2.51195392929186E-13"
+        ixy="-2.51195392922925E-13"
         ixz="-1.11095502434909E-12"
         iyy="0.00034441807987338"
-        iyz="-7.04089023790538E-20"
+        iyz="-7.10470592515769E-20"
         izz="1.70763527628551E-05" />
     </inertial>
     <visual>
@@ -170,10 +170,10 @@
         value="0.121253793382564" />
       <inertia
         ixx="3.6960102936586E-05"
-        ixy="2.16969474672659E-21"
+        ixy="2.20205818819273E-21"
         ixz="-9.69924813425358E-06"
         iyy="8.87901604619433E-05"
-        iyz="-2.32851342433677E-22"
+        iyz="-2.47327003153355E-22"
         izz="5.63585992050934E-05" />
     </inertial>
     <visual>
@@ -232,10 +232,10 @@
         value="0.110507990252835" />
       <inertia
         ixx="1.70763527628551E-05"
-        ixy="7.3200630770134E-20"
+        ixy="7.32878724548063E-20"
         ixz="1.11095505115411E-12"
         iyy="0.000344418079873379"
-        iyz="2.51195392049599E-13"
+        iyz="2.51195392045156E-13"
         izz="0.000352705009978738" />
     </inertial>
     <visual>
@@ -284,16 +284,16 @@
     name="high_link_4">
     <inertial>
       <origin
-        xyz="0.0300863035652878 -0.0325 0.019999999999998"
+        xyz="0.0300863035652879 -0.0325 0.0199999999999981"
         rpy="0 0 0" />
       <mass
         value="0.175480660661564" />
       <inertia
         ixx="6.05047056603455E-05"
-        ixy="-8.38562617781757E-20"
-        ixz="-1.15287788609841E-19"
+        ixy="-8.93619759353287E-20"
+        ixz="-1.15286868663162E-19"
         iyy="0.000143534859572765"
-        iyz="5.48558467947461E-20"
+        iyz="5.5009811461118E-20"
         izz="0.000103215341759094" />
     </inertial>
     <visual>
@@ -343,19 +343,19 @@
       offset="0" />
   </joint>
   <link
-    name="wrist_1_link">
+    name="wrist_link_1">
     <inertial>
       <origin
-        xyz="0.0288597903243326 -0.0325000000000186 -5.32907051820075E-15"
+        xyz="0.0288597903243325 -0.0325000000000186 -5.38458166943201E-15"
         rpy="0 0 0" />
       <mass
         value="0.132446543816184" />
       <inertia
         ixx="5.39586231779543E-05"
-        ixy="-5.19651166152823E-21"
-        ixz="-2.42015351437458E-19"
+        ixy="-4.64825724605552E-21"
+        ixz="-2.41554475338763E-19"
         iyy="5.99244035497373E-05"
-        iyz="1.13159822682762E-22"
+        iyz="6.11234292341987E-22"
         izz="5.99485243200493E-05" />
     </inertial>
     <visual>
@@ -364,7 +364,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://arm_v2_description/meshes/wrist_1_link.STL" />
+          filename="package://arm_v2_description/meshes/wrist_link_1.STL" />
       </geometry>
       <material
         name="">
@@ -378,12 +378,12 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://arm_v2_description/meshes/wrist_1_link.STL" />
+          filename="package://arm_v2_description/meshes/wrist_link_1.STL" />
       </geometry>
     </collision>
   </link>
   <joint
-    name="wrist_1_joint"
+    name="wrist_joint_1"
     type="revolute">
     <origin
       xyz="0.05 0 0.02"
@@ -391,7 +391,7 @@
     <parent
       link="high_link_4" />
     <child
-      link="wrist_1_link" />
+      link="wrist_link_1" />
     <axis
       xyz="0 1 0" />
     <limit
@@ -401,19 +401,19 @@
       velocity="0" />
   </joint>
   <link
-    name="wrist_2_link">
+    name="wrist_link_2">
     <inertial>
       <origin
-        xyz="0.0413433295596609 -4.44865447797198E-15 -1.88737914186277E-15"
+        xyz="0.0413433295596609 -4.44865868606395E-15 -1.88737914186277E-15"
         rpy="0 0 0" />
       <mass
         value="0.110570086754039" />
       <inertia
         ixx="4.35735393679915E-05"
-        ixy="-1.16392158634335E-21"
-        ixz="2.22113554646584E-19"
+        ixy="-1.78917287401317E-21"
+        ixz="2.22501524110613E-19"
         iyy="6.54727005469971E-05"
-        iyz="-2.98892093024712E-22"
+        iyz="-2.22257281053871E-22"
         izz="6.52299662450052E-05" />
     </inertial>
     <visual>
@@ -422,7 +422,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://arm_v2_description/meshes/wrist_2_link.STL" />
+          filename="package://arm_v2_description/meshes/wrist_link_2.STL" />
       </geometry>
       <material
         name="">
@@ -436,22 +436,22 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://arm_v2_description/meshes/wrist_2_link.STL" />
+          filename="package://arm_v2_description/meshes/wrist_link_2.STL" />
       </geometry>
     </collision>
   </link>
   <joint
-    name="wrist_2_joint"
+    name="wrist_joint_2"
     type="continuous">
     <origin
       xyz="0.043 -0.0325 0"
       rpy="0 0 0" />
     <parent
-      link="wrist_1_link" />
+      link="wrist_link_1" />
     <child
-      link="wrist_2_link" />
+      link="wrist_link_2" />
     <axis
-      xyz="-1 0 0" />
+      xyz="1 0 0" />
     <limit
       lower="-3.1416"
       upper="3.1416"
@@ -459,19 +459,19 @@
       velocity="0" />
   </joint>
   <link
-    name="wrist_3_link">
+    name="wrist_link_3">
     <inertial>
       <origin
-        xyz="0.0199173217488061 -0.0324999999999972 3.38618022510673E-15"
+        xyz="0.0199173217488061 -0.0324999999999972 3.27515792264421E-15"
         rpy="0 0 0" />
       <mass
         value="0.175480660661564" />
       <inertia
         ixx="6.05789257867864E-05"
-        ixy="-1.3976043629696E-20"
-        ixz="9.0008545137935E-19"
+        ixy="-9.74087889342445E-21"
+        ixz="9.04024544555929E-19"
         iyy="0.000143646403292765"
-        iyz="-1.03064220512909E-19"
+        iyz="-1.02251774053586E-19"
         izz="0.000103252665352653" />
     </inertial>
     <visual>
@@ -480,7 +480,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://arm_v2_description/meshes/wrist_3_link.STL" />
+          filename="package://arm_v2_description/meshes/wrist_link_3.STL" />
       </geometry>
       <material
         name="">
@@ -494,20 +494,20 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://arm_v2_description/meshes/wrist_3_link.STL" />
+          filename="package://arm_v2_description/meshes/wrist_link_3.STL" />
       </geometry>
     </collision>
   </link>
   <joint
-    name="wrist_3_joint"
+    name="wrist_joint_3"
     type="revolute">
     <origin
       xyz="0.0631 0.0325 0"
       rpy="0 0 0" />
     <parent
-      link="wrist_2_link" />
+      link="wrist_link_2" />
     <child
-      link="wrist_3_link" />
+      link="wrist_link_3" />
     <axis
       xyz="0 1 0" />
     <limit
@@ -517,19 +517,72 @@
       velocity="0" />
   </joint>
   <link
+    name="tip_link">
+    <inertial>
+      <origin
+        xyz="-0.00249999999999989 5.31400960635577E-18 -5.55111512312578E-17"
+        rpy="0 0 0" />
+      <mass
+        value="0.0195" />
+      <inertia
+        ixx="1.2715625E-05"
+        ixy="-3.46309420484919E-23"
+        ixz="7.36120048674753E-39"
+        iyy="5.89062500000002E-06"
+        iyz="-2.58439464851749E-21"
+        izz="6.90625000000001E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://arm_v2_description/meshes/tip_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://arm_v2_description/meshes/tip_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="tip_fixed_joint"
+    type="fixed">
+    <origin
+      xyz="0.06 -0.0325 0"
+      rpy="0 0 0" />
+    <parent
+      link="wrist_link_3" />
+    <child
+      link="tip_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
     name="high_link_3">
     <inertial>
       <origin
-        xyz="0.0910000053019755 -0.0175 5.55111512312578E-17"
+        xyz="0.0910000053019755 -0.0175 0"
         rpy="0 0 0" />
       <mass
         value="0.110507990252836" />
       <inertia
         ixx="1.70763527628552E-05"
-        ixy="1.14738958603776E-20"
-        ixz="1.11095499517562E-12"
+        ixy="1.24432481179624E-20"
+        ixz="1.1109549946869E-12"
         iyy="0.000344418079873382"
-        iyz="-2.51195399294245E-13"
+        iyz="-2.51195399297729E-13"
         izz="0.000352705009978742" />
     </inertial>
     <visual>
@@ -588,10 +641,10 @@
         value="0.110507990252836" />
       <inertia
         ixx="0.00035270500997874"
-        ixy="-2.51195393069893E-13"
+        ixy="-2.51195393060704E-13"
         ixz="-1.1109550174994E-12"
         iyy="0.00034441807987338"
-        iyz="-7.79439995841031E-20"
+        iyz="-7.85950811746664E-20"
         izz="1.70763527628551E-05" />
     </inertial>
     <visual>

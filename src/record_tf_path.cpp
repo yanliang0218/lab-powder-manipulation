@@ -80,7 +80,6 @@ public:
         //queue size is 10
         this->path_publisher_ = this->create_publisher<nav_msgs::msg::Path>("/end_effector_path",10);
 
-
         yaml_file_.open(yaml_file_path_);
 
         if (!yaml_file_.is_open()) {
@@ -98,12 +97,12 @@ public:
         std::bind(&TFPathRecorder::timerCallback,this) means that everytime
         the timer fires, timerCallback is called
         */
-        timer_ = this->create_wall_timer(
+        this->timer_ = this->create_wall_timer(
             std::chrono::duration<double>(this->sampling_period_),
             //TfPathRecorder: the class name, this specifies that timerCallback 
             //belongs to the class TfPathRecorder
 
-            //this: run this function on this specific object
+            //this: run timerCallback on this specific object every time the timer fires
             std::bind(&TfPathRecorder::timerCallback,this)
         );
 
@@ -203,8 +202,6 @@ private:
         //publish path to /end_effector_path topic for visualization
         this->path_publisher_->publish(this->path_);
         RCLCPP_INFO(this->get_logger(), "Publishing path with %zu poses.", this->path_.poses.size());
-
-
     }
 };
 
@@ -228,7 +225,6 @@ int main(int argc, char** argv)
     //checks timer, subscriptions, service callbacks, action callbacks, etc
     //if timer fires, call timerCallback()
     rclcpp::spin(node);
-
 
     rclcpp::shutdown();
 

@@ -1,8 +1,21 @@
-/**********************************************************************************
+/*****************************************************o*****************************
 Project: Lab Powder Manipulation
 File: encoder_joint_state_bridge.cpp
-Purpose: 
-Description:
+Author: Liang Yan
+Purpose: read encoder readings for each joint and pass that to RViz model to compute and visualze
+         effector trajectory
+Description: this code has two event pipelines: a 50Hz serial_timer drives reception of encoder readings,
+             and a subcription to joint_states_gui messages that drives guiJointCallback.
+             
+             Upon node initialization, the code attempts to open serial port /dev/ttyACM0. 
+
+                Every time the serial_timer fires, the serial printouts from Arduino serial is parsed, and using
+                "Angle in rad", the code locates and extracts the numerical angle reading. This is then stored in
+                private variable latest_encoder_joint_angle_rad_.
+                
+                Readings from all joints form a sensor_msgs::msg::JointState. Every time such a new msg arrives, 
+                guiJointCallbacks is called, and it publishes the latest joint angles to /joint_states, which is 
+                then visualized as manipulator movements in RViz, enabling end effector point trajectory tracking.
 **********************************************************************************/
 
 #include <rclcpp/rclcpp.hpp>
@@ -27,7 +40,7 @@ public:
     : Node("encoder_joint_state_bridge")
     {
         //subscriber listens to /joint_states_gui
-        //whenever a type JointState msg arrives, call guiJointStateCallback 
+        //whenever a type JointState msg arrives, call guiJointStateCallback(this msg!)
         //prior: joint_state_publisher_gui -> /joint_state_gui -> gui_joint_state_sub_ -> guiJointStateCallback() 
         gui_joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "/joint_states_gui",
@@ -67,8 +80,6 @@ public:
         this->max_angle_rad_ = this->declare_parameter<double>("max_angle_rad", 3.14159265359);
         this->min_angle_rad_ = this->declare_parameter<double>("min_angle_rad", -3.14159265359);
        
-        //runs the openSerialPort upon creation of this object
-        this->openSerialPort();
 
         //setting the serial sampling period to 0.02s, meaning a sampling freq of 50Hz
         this->serial_sampling_period_ = this->declare_parameter<double> ("serial_sampling_period",0.02);
@@ -81,6 +92,11 @@ public:
             //this: run receiveEncoderAngleFromArduinoSerial() on this specific object every time the timer fires
             std::bind(&EncoderJointStateBridge::receiveEncoderAngleFromArduinoSerial,this)
         );
+
+        //-----------------------------------------------------------------------------------------------------
+        //runtime execution, not private variable definitions anymore!
+        //runs the openSerialPort upon creation of this object
+        this->openSerialPort();
 
 
     }
@@ -181,7 +197,7 @@ private:
     //helper function for opening an Arduino serial port
     //it directly modifies the private member variable serial_fd_ if the serial port is successfully opened
     //this valid serial_fd_ is then passed to the following function receiveEncoderAngleFromArduinoSerial()
-    bool openSerialPort()
+    void openSerialPort()
     {
         this->serial_fd_ = open("/dev/ttyACM0", O_RDWR | O_NOCTTY | O_NDELAY);
 
@@ -189,14 +205,11 @@ private:
         {
            RCLCPP_ERROR(this->get_logger(),"Failed to open serial port %s, error msg is %s", 
            this->serial_port_.c_str(),std::strerror(errno));
-
-           return false;
         }
 
         else
         {
             RCLCPP_INFO(this->get_logger(),"Opened serial port %s", this->serial_port_.c_str());
-            return true;
         }
     }
 

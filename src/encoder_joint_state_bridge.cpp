@@ -22,6 +22,7 @@ Description: this code has two event pipelines: a 50Hz serial_timer drives recep
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <iostream>
 #include <string> 
+#include <vector>
 #include <functional>
 #include <memory>
 #include <chrono>
@@ -62,7 +63,7 @@ public:
 
         //---------------------------------------------------------------------------
         //initialize joint name to base_joint, encoder_sign to 1.0, encoder_offset to 0.0
-        this->joint_name_from_encoder_ = this->declare_parameter<std::string>("physical_joint_name","base_joint");
+        this->joint_names_from_encoder_ = this->declare_parameter<std::vector<std::string>>("physical_joint_names",std::vector<std::string>{"high_joint_A","high_joint_B"});
         this->encoder_sign_ = this->declare_parameter<double>("encoder_sign",1.0);
         this->encoder_offset_rad_= this->declare_parameter<double>("encoder_offset_rad",0.0);
 
@@ -97,8 +98,6 @@ public:
         //runtime execution, not private variable definitions anymore!
         //runs the openSerialPort upon creation of this object
         this->openSerialPort();
-
-
     }
 
 private:
@@ -125,7 +124,7 @@ private:
     double encoder_sign_;
 
     //name of the joint whose angle is to be replaced by physical encoder reading
-    std::string joint_name_from_encoder_;
+    std::vector<std::string> joint_names_from_encoder_;
 
     //---------------------------------------------------------------------------
 
@@ -323,33 +322,32 @@ private:
         for (size_t i=0;i<joint_state_msg.name.size();++i)
         {
             //find the joint name that matches our target joint angle to be replaced by physical encoder reading
-            if (joint_state_msg.name[i] == this->joint_name_from_encoder_)
+            for (size_t j=0;j<joint_names_from_encoder_.size();++j)
             {
-                //compute the corrected angle after joint calibration
-                double corrected_angle = this->encoder_sign_ * this->latest_encoder_joint_angle_rad_ + this->encoder_offset_rad_;
+                if (joint_state_msg.name[i] == this->joint_names_from_encoder_[j])
+                {
+                    //compute the corrected angle after joint calibration
+                    double corrected_angle = this->encoder_sign_ * this->latest_encoder_joint_angle_rad_ + this->encoder_offset_rad_;
 
-                /*
-                sensor_msgs/JointState.msg:
+                    /*
+                    sensor_msgs/JointState.msg:
 
-                Header header
+                    Header header
 
-                string[] name
-                float64[] position
-                float64[] velocity
-                float64[] effort
-                */
+                    string[] name
+                    float64[] position
+                    float64[] velocity
+                    float64[] effort
+                    */
 
-                //replace the angle in the corresponding position
-                joint_state_msg.position[i] = corrected_angle;
+                    //replace the angle in the corresponding position
+                    joint_state_msg.position[i] = corrected_angle;
 
-                return;
-            }
+                }
+                
+            } 
         }
-
-        //if the function did not return above, it means that the target joint to be replaced
-        //by physical encoder reading was not found. print a warning
-        RCLCPP_WARN(this->get_logger(), "Joint name %s is not found in JointState message.",
-        this->joint_name_from_encoder_.c_str());
+        return;
 
     }
 

@@ -106,6 +106,9 @@ public:
             std::bind(&TfPathRecorder::timerCallback,this)
         );
 
+        //recording start time, used so saved timestamps are relative to node/simulation start
+        this->recording_start_time_ = this->now();
+
     }
 
 private:
@@ -128,6 +131,7 @@ private:
     nav_msgs::msg::Path path_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_publisher_;
 
+    rclcpp::Time recording_start_time_;
     std::ofstream yaml_file_;
     std::string yaml_file_path_ = "trajectory.yaml";
 
@@ -140,9 +144,9 @@ private:
         }
 
         this->yaml_file_ << "  - header:\n";
-        this->yaml_file_ << "      stamp:\n";
-        this->yaml_file_ << "        sec: " << pose_msg.header.stamp.sec << "\n";
-        this->yaml_file_ << "        nanosec: " << pose_msg.header.stamp.nanosec << "\n";
+        double time_since_start_sec = (rclcpp::Time(pose_msg.header.stamp) - this->recording_start_time_).nanoseconds();
+
+        this->yaml_file_ << "      time_since_start_sec: " << time_since_start_sec << "\n";
         this->yaml_file_ << "      frame_id: " << pose_msg.header.frame_id << "\n";
 
         this->yaml_file_ << "    pose:\n";
@@ -161,6 +165,9 @@ private:
     }
 
 
+    
+
+
     //function called every time the wall timer fires
     void timerCallback()
     {
@@ -168,10 +175,12 @@ private:
 
         geometry_msgs::msg::TransformStamped current_transform;
         
-        try {
+        try 
+        {
           //look up the current transform from fixed frame to target frame
           current_transform = this->tf_buffer_.lookupTransform(fixed_frame_ ,target_frame_,tf2::TimePointZero);
         } 
+
         catch (const tf2::TransformException & ex) {
           RCLCPP_WARN( this->get_logger(), "Could not transform %s to %s: %s",
           this->fixed_frame_.c_str(), this->target_frame_.c_str(), ex.what());

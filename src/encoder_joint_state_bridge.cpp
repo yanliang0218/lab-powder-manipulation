@@ -1,4 +1,4 @@
-/*****************************************************o*****************************
+/***********************************************************************************
 Project: Lab Powder Manipulation
 File: encoder_joint_state_bridge.cpp
 Author: Liang Yan
@@ -21,6 +21,7 @@ Description: this code has two event pipelines: a 50Hz serial_timer drives recep
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <iostream>
+#include <fstream>
 #include <string> 
 #include <vector>
 #include <functional>
@@ -61,13 +62,16 @@ public:
         RCLCPP_INFO(this->get_logger(), "Subscribing to /joint_states_gui");
         RCLCPP_INFO(this->get_logger(), "Publishing to /joint_states");
 
-        //---------------------------------------------------------------------------
-        //initialize joint name to base_joint, encoder_sign to 1.0, encoder_offset to 0.0
-        this->joint_names_from_encoder_ = this->declare_parameter<std::vector<std::string>>("physical_joint_names",std::vector<std::string>{"high_joint_A","high_joint_B"});
+        //-----------------------------------------------------------------------------------------------------
+        //initialize joint names, encoder_sign to 1.0, encoder_offset to 0.0
+        this->joint_names_from_encoder_ = this->declare_parameter<std::vector<std::string>>("physical_joint_names",
+            std::vector<std::string>{"base_joint","low_joint_A","low_joint_B","low_joint_C","high_joint_A","high_joint_B","high_joint_C",
+            "wrist_joint_1","wrist_joint_2","wrist_joint_3"});
+
         this->encoder_sign_ = this->declare_parameter<double>("encoder_sign",1.0);
         this->encoder_offset_rad_= this->declare_parameter<double>("encoder_offset_rad",0.0);
 
-        //---------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------------------
         //specify the COM port used by the Arduino R3 MCU
         this->serial_port_ = this->declare_parameter<std::string>("serial_port","/dev/ttyACM0");
 
@@ -75,15 +79,16 @@ public:
         this->baud_rate_ = this->declare_parameter<int>("baud_rate",115200);
 
         //setting the angle_extraction_identifier
-        this->angle_extraction_identifier_ = this->declare_parameter<std::string>("angle_extraction_identifier", "Angle rad:");
+        this->angle_extraction_identifiers_ =  this->declare_parameter<std::vector<std::string>>
+        ("angle_extraction_identifiers", std::vector<std::string>{"Angle 1 rad:","Angle 2 rad:","Angle 3 rad:","Angle 4 rad:","Angle 5 rad:","Angle 6 rad:"});
 
         //setting the maximum and minimum thresholds of valid angle readings to += 180 deg / +- pi rad
         this->max_angle_rad_ = this->declare_parameter<double>("max_angle_rad", 3.14159265359);
         this->min_angle_rad_ = this->declare_parameter<double>("min_angle_rad", -3.14159265359);
        
 
-        //setting the serial sampling period to 0.02s, meaning a sampling freq of 50Hz
-        this->serial_sampling_period_ = this->declare_parameter<double> ("serial_sampling_period",0.02);
+        //setting the serial sampling period to 0.005s, meaning a sampling freq of 200Hz
+        this->serial_sampling_period_ = this->declare_parameter<double> ("serial_sampling_period",0.005);
 
         this->serial_timer_ = this->create_wall_timer(
             std::chrono::duration<double>(this->serial_sampling_period_),
@@ -95,13 +100,30 @@ public:
         );
 
         //-----------------------------------------------------------------------------------------------------
+        //recording start time, used so saved timestamps are relative to node/simulation start
+        this->recording_start_time_ = this->now();
+
+        //opening the joint_angles csv file
+        this->joint_angles_file_.open(joint_angles_file_path_);
+
+        if (!this->joint_angles_file_.is_open()) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to open joint angles CSV file: %s", joint_angles_file_path_.c_str());
+        } 
+        else 
+        {
+            this->joint_angles_file_ << "timestamp,angle1_rad,angle2_rad,angle3_rad,angle4_rad,angle5_rad,angle6_rad\n";
+
+            RCLCPP_INFO(this->get_logger(), "Recording joint angles to %s", joint_angles_file_path_.c_str());
+        }
+
+        //-----------------------------------------------------------------------------------------------------
         //runtime execution, not private variable definitions anymore!
         //runs the openSerialPort upon creation of this object
         this->openSerialPort();
     }
 
 private:
-    //---------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------------------------
 
     //a ROS 2 subscription object whose message type is sensor_msgs::msg::JointState, stored using a sharedPtr
     //subscribes to joint_state_gui
@@ -112,11 +134,11 @@ private:
     //publishes the final joint_state to /joint_states
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr final_joint_state_pub_;
 
-    //the latest raw encoder angle
-    double latest_encoder_joint_angle_rad_ = 0.0;
+    //private variable for the latest raw encoder angles, initialized at 0.0
+    std::vector<double> latest_encoder_joint_angles_rad_ = {0.0,0.0,0.0,0.0,0.0,0.0};
 
     //at startup, there might not be valid encoder angle
-    bool if_encoder_angle_valid_ = false;
+    bool if_encoder_angles_valid_ = false;
 
     //correct angle = encoder_sign * latest_encoder_joint_angle_rad + encoder_offset_rad
     //used for joint angle calibration
@@ -126,7 +148,7 @@ private:
     //name of the joint whose angle is to be replaced by physical encoder reading
     std::vector<std::string> joint_names_from_encoder_;
 
-    //---------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------------------------
 
     //serial port for the arduino COM3/COM4 in Ubuntu
     std::string serial_port_;
@@ -142,12 +164,12 @@ private:
     int serial_fd_ = -1;
 
     //an identifier with which the correct angle reading in rad can be extracted from
-    //the output text of the Arduino serial prints
+    //the output text of the Arduino serial prints, e.g.
     /*
     "Raw angle: 2247 | Angle deg: -85.0 | Angle rad: -1.483700"
     Here, the extraction identifier should be "Angle rad:"
     */
-    std::string angle_extraction_identifier_;
+    std::vector<std::string> angle_extraction_identifiers_;
     
     //max and min limits of valid angles
     double max_angle_rad_;
@@ -157,39 +179,50 @@ private:
     double serial_sampling_period_;
 
     rclcpp::TimerBase::SharedPtr serial_timer_;
+     
+    //a file stream object for writing joint angles to a CSV file
+    rclcpp::Time recording_start_time_;
+
+    std::ofstream joint_angles_file_;
+    std::string joint_angles_file_path_ = "joint_angles.csv";
 
     //helper functon to read angle using the angle value extraction layer from an identified line in serial_buffer_
     //line is passed as a constant reference as it cannot be changed, while angle_rad will be updated 
     //to the actual parsed angle value
-    bool parseAngleRadFromLine(const std::string& line, double& angle_rad)
+    bool parseAngleRadFromLine(const std::string& line, std::vector<double>& angles_rad)
     {
-        //find the position/index in the line where the angle_extraction_identifier_ starts
-        size_t pos_extraction_identifier = line.find(this->angle_extraction_identifier_);
-
-        if (pos_extraction_identifier == std::string::npos)
+        //find the position/index in the line where the the angle_extraction_identifier_ that correspond to each read angle starts
+        for (size_t i = 0; i<this->angle_extraction_identifiers_.size();i++)
         {
-            //if this position could not be found, exit
-            return false;
-        }
-        
-        //the position/index where the angle value starts is that where the angle_extraction_identifier_ + length of itself
-        size_t pos_angle_value_start = pos_extraction_identifier + this->angle_extraction_identifier_.length();
-        
-        //the angle reading is therefore the previous position to the end of the line
-        std::string angle_reading = line.substr(pos_angle_value_start);
+            size_t pos_extraction_identifier = line.find(this->angle_extraction_identifiers_[i]);
 
-        //convert this angle reading from string to double, catch exceptions accordingly
-        try
-        {
-            angle_rad = std::stod(angle_reading);
+            if (pos_extraction_identifier == std::string::npos)
+            {
+                //if this position could not be found, exit
+                return false;
+            }
+            
+            //the position/index where the angle value starts is that where the angle_extraction_identifier_ + length of itself
+            size_t pos_angle_value_start = pos_extraction_identifier + this->angle_extraction_identifiers_[i].length();
+            
+            //the angle reading is therefore the previous position to the end of the line
+            std::string angle_reading = line.substr(pos_angle_value_start);
 
-        }catch(const std::exception&) {
-       
-            return false;
+            //convert this angle reading from string to double, catch exceptions accordingly
+            try
+            {
+                angles_rad[i] = std::stod(angle_reading);
+
+            }catch(const std::exception&) {
+        
+                return false;
+            }
         }
+ 
         
         //if there is no exception, return true
         return true;
+
     }
     
 
@@ -225,7 +258,7 @@ private:
         {
             char read_buffer[256]; //why not string?
 
-            //ssize_t read(int fd, void buf[count], size_t count);
+            //size_t read(int fd, void buf[count], size_t count);
             //read() attempts to read up to count bytes from file descriptor fd into the buffer starting at buf
             //why minus 1? -> later, when the read_buffer is prefilled with the terminating 0, there are only 255 
             //available slots, so we should read up to sizeof(read_buffer)-1 bytes
@@ -270,20 +303,22 @@ private:
                     //erase the full line from serial_buffer_ up to the newline character
                     this->serial_buffer_.erase(0,newline_pos+1); 
 
-                    // initialize the parsed_angle_rad variable to 0.0, this variable will hold the parsed angle if parsed successfully
-                    double parsed_angle_rad = 0.0;
 
-                    if (!this->parseAngleRadFromLine(line,parsed_angle_rad))
+                    std::vector<double> parsed_angles_rad(6,0.0);
+                    if (!this->parseAngleRadFromLine(line,parsed_angles_rad))
                     {
                         return;
                     }
-
-                    else
+                    
+                    for (size_t i = 0; i<this->angle_extraction_identifiers_.size();i++)
                     {
+                        // initialize the parsed_angle_rad variable to 0.0, this variable will hold the parsed angle if parsed successfully
+                        
+                    
                         //check if the parse angle rad is in range
-                        if (parsed_angle_rad < this->min_angle_rad_ || parsed_angle_rad > this->max_angle_rad_)
+                        if (parsed_angles_rad[i] < this->min_angle_rad_ || parsed_angles_rad[i] > this->max_angle_rad_)
                         {
-                            RCLCPP_WARN(this->get_logger(), "Recently read angle value %f out of range, rejected",parsed_angle_rad);
+                            RCLCPP_WARN(this->get_logger(), "Recently read angle value %f out of range, rejected",parsed_angles_rad[i]);
                             return;
                         }
 
@@ -291,15 +326,18 @@ private:
                         //and if_encoder_angle_valid_
                         else
                         {   //initialized to 0.0 in private:
-                            this->latest_encoder_joint_angle_rad_ = parsed_angle_rad;
+                            this->latest_encoder_joint_angles_rad_[i] = parsed_angles_rad[i];
                             //initialized to false in private:
-                            this->if_encoder_angle_valid_ = true;
+                            
                         }
-
                     }
-                }
+                    this->if_encoder_angles_valid_ = true;
+
+                    //record the latest encoder joint angles to the CSV file
+                    writeAnglestoCSV(this->latest_encoder_joint_angles_rad_);
                 
-                
+                    
+                }    
 
             }
                 
@@ -313,7 +351,7 @@ private:
     void replaceWithPhysicalJoints(sensor_msgs::msg::JointState& joint_state_msg)
     {
         //if the encoder angle is not yet valid, skip the replacement for now and wait for Arduino to get ready
-        if (!this->if_encoder_angle_valid_)
+        if (!this->if_encoder_angles_valid_)
         {
             return;
         }
@@ -326,22 +364,89 @@ private:
             {
                 if (joint_state_msg.name[i] == this->joint_names_from_encoder_[j])
                 {
-                    //compute the corrected angle after joint calibration
-                    double corrected_angle = this->encoder_sign_ * this->latest_encoder_joint_angle_rad_ + this->encoder_offset_rad_;
+                    double corrected_angle = 0.0;
 
-                    /*
-                    sensor_msgs/JointState.msg:
+                    if (this->joint_names_from_encoder_[j] == "base_joint")
+                    {
+                    
+                        //compute the corrected angle after joint calibration
+                        corrected_angle = this->encoder_sign_ * this->latest_encoder_joint_angles_rad_[0] + this->encoder_offset_rad_;
 
-                    Header header
+                        /*
+                        sensor_msgs/JointState.msg:
 
-                    string[] name
-                    float64[] position
-                    float64[] velocity
-                    float64[] effort
-                    */
+                        Header header
 
-                    //replace the angle in the corresponding position
-                    joint_state_msg.position[i] = corrected_angle;
+                        string[] name
+                        float64[] position
+                        float64[] velocity
+                        float64[] effort
+                        */
+
+                        //replace the angle in the corresponding position
+                        joint_state_msg.position[i] = corrected_angle;
+                    }
+                    
+                    else if (this->joint_names_from_encoder_[j] == "low_joint_A" || this->joint_names_from_encoder_[j] == "low_joint_B" )
+                    {
+                        
+                        //compute the corrected angle after joint calibration
+                        corrected_angle = this->encoder_sign_ * this->latest_encoder_joint_angles_rad_[1] + this->encoder_offset_rad_;
+
+                        joint_state_msg.position[i] = corrected_angle;
+
+                    }
+                                        
+                    else if (this->joint_names_from_encoder_[j] == "low_joint_C" )
+                    {
+                        
+                        //compute the corrected angle after joint calibration
+                        corrected_angle = - this->encoder_sign_ * this->latest_encoder_joint_angles_rad_[1] + this->encoder_offset_rad_;
+
+                        joint_state_msg.position[i] = corrected_angle;
+
+                    }
+
+                    else if (this->joint_names_from_encoder_[j] == "high_joint_A" || this->joint_names_from_encoder_[j] == "high_joint_B" 
+                    ||this->joint_names_from_encoder_[j] == "high_joint_C")  
+
+                    {
+                        
+                        //compute the corrected angle after joint calibration
+                        corrected_angle = - this->encoder_sign_ * this->latest_encoder_joint_angles_rad_[2] + this->encoder_offset_rad_;
+
+                        joint_state_msg.position[i] = corrected_angle;
+
+                    }
+
+                    else if (this->joint_names_from_encoder_[j] == "wrist_joint_1")                    
+                    {
+                        
+                        //compute the corrected angle after joint calibration
+                        corrected_angle = - this->encoder_sign_ * this->latest_encoder_joint_angles_rad_[3] + this->encoder_offset_rad_;
+
+                        joint_state_msg.position[i] = corrected_angle;
+
+                    }
+
+                    else if (this->joint_names_from_encoder_[j] == "wrist_joint_2")                    
+                    {
+                        
+                        //compute the corrected angle after joint calibration
+                        corrected_angle = - this->encoder_sign_ * this->latest_encoder_joint_angles_rad_[4] + this->encoder_offset_rad_;
+
+                        joint_state_msg.position[i] = corrected_angle;
+
+                    }
+
+                    else
+                    {
+                        //compute the corrected angle after joint calibration
+                        corrected_angle = - this->encoder_sign_ * this->latest_encoder_joint_angles_rad_[5] + this->encoder_offset_rad_;
+
+                        joint_state_msg.position[i] = corrected_angle;
+                    }
+                    
 
                 }
                 
@@ -372,6 +477,32 @@ private:
         //publish this output_msg to final_joint_state_pub_ 
         this->final_joint_state_pub_->publish(output_msg);
     }
+
+    //-----------------------------------------------------------------------------------------------------
+    void writeAnglestoCSV(const std::vector<double>&angles_rad)
+    {
+        if(!this->joint_angles_file_.is_open())
+        {
+            return;
+        }
+        
+        //record current time since simulation start in seconds
+        rclcpp::Time now = this->now();
+        double time_since_start_sec = (now - this->recording_start_time_).nanoseconds();
+        
+        //write the timestamp and angles to the CSV file
+        this->joint_angles_file_ << time_since_start_sec;
+
+        for (const auto& angle : angles_rad)
+        {
+            //write a comma before each angle value
+            this->joint_angles_file_ << "," << angle;
+        }
+
+        this->joint_angles_file_ << "\n";
+        this->joint_angles_file_.flush();
+    }
+
 };
 
 int main(int argc, char** argv)

@@ -1,0 +1,19 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Vision dataset
+vision_dataset/
+images/
+*.png
+*.jpg
+*.jpeg
+*.avi
+*.mp4
+
+# Large downloaded packages
+ORB_SLAM3-master/
+ORB_SLAM3-master.zip
+
+# Optional: calibration files
+*.npz

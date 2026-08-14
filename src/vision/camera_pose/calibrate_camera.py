@@ -28,7 +28,7 @@ import os
 CHECKERBOARD = (8, 5)
 
 # Every square's size in meters, e.g., 25 mm = 0.025 m
-SQUARE_SIZE = 0.025
+SQUARE_SIZE = 0.028
 
 IMAGE_DIR = "images"
 OUTPUT_FILE = "camera_calibration.npz"

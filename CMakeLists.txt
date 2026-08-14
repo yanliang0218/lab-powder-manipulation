@@ -1,23 +1,54 @@
 cmake_minimum_required(VERSION 3.8)
 project(arm_v2_description)
 
-# Find required ROS 2 and external packages
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
+# ==============================================================================
+# 1. Find ROS 2 and external dependencies
+# ==============================================================================
+
 find_package(ament_cmake REQUIRED)
+
+# Kinematics and robot-model dependencies.
 find_package(kdl_parser REQUIRED)
 find_package(orocos_kdl REQUIRED)
+
+# ROS 2 C++ and TF dependencies retained for the package's other utilities.
 find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+
+# Message dependencies used by the C++ nodes and custom interfaces.
+find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-find_package(std_msgs REQUIRED)
 
-# ------------------------------------------------------------
-# KDL tree printer
-# ------------------------------------------------------------
+# Custom message generation.
+find_package(rosidl_default_generators REQUIRED)
+
+
+# ==============================================================================
+# 2. Generate custom ROS 2 messages
+# ==============================================================================
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/SyncedMsg.msg"
+  DEPENDENCIES
+    std_msgs
+    geometry_msgs
+    sensor_msgs
+)
+
+ament_export_dependencies(rosidl_default_runtime)
+
+
+# ==============================================================================
+# 3. KDL inspection and standalone FK utilities
+# ==============================================================================
 
 add_executable(
   print_kdl_tree
@@ -30,10 +61,6 @@ ament_target_dependencies(
   orocos_kdl
 )
 
-# ------------------------------------------------------------
-# KDL chain printer
-# ------------------------------------------------------------
-
 add_executable(
   print_kdl_chain
   src/FK/print_kdl_chain.cpp
@@ -44,10 +71,6 @@ ament_target_dependencies(
   kdl_parser
   orocos_kdl
 )
-
-# ------------------------------------------------------------
-# Forward kinematics node
-# ------------------------------------------------------------
 
 add_executable(
   compute_fk
@@ -60,10 +83,14 @@ ament_target_dependencies(
   orocos_kdl
 )
 
-# ------------------------------------------------------------
-# TF path recorder
-# ------------------------------------------------------------
 
+# ==============================================================================
+# 4. Online robot-state, event-driven FK and synchronization nodes
+# ==============================================================================
+
+# Subscribe to /joint_states. Every received JointState directly triggers one
+# KDL FK calculation and one /FK_pose publication with the same timestamp.
+# The executable name is retained as record_tf_path for launch compatibility.
 add_executable(
   record_tf_path
   src/FK/record_tf_path.cpp
@@ -72,17 +99,13 @@ add_executable(
 ament_target_dependencies(
   record_tf_path
   rclcpp
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
+  sensor_msgs
   geometry_msgs
-  nav_msgs
+  kdl_parser
+  orocos_kdl
 )
 
-# ------------------------------------------------------------
-# Encoder to joint-state bridge
-# ------------------------------------------------------------
-
+# Read the physical encoders and publish /joint_angles plus /joint_states.
 add_executable(
   encoder_joint_state_bridge
   src/FK/encoder_joint_state_bridge.cpp
@@ -94,9 +117,36 @@ ament_target_dependencies(
   sensor_msgs
 )
 
-# ------------------------------------------------------------
-# Install executable targets
-# ------------------------------------------------------------
+# Package each unique compressed camera image with the latest FK pose and
+# optional joint angles for offline hand-eye calibration.
+add_executable(
+  sensor_sync
+  src/sync/sensor_sync_offline_tag.cpp
+)
+
+ament_target_dependencies(
+  sensor_sync
+  rclcpp
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+)
+
+rosidl_get_typesupport_target(
+  cpp_typesupport_target
+  ${PROJECT_NAME}
+  "rosidl_typesupport_cpp"
+)
+
+target_link_libraries(
+  sensor_sync
+  "${cpp_typesupport_target}"
+)
+
+
+# ==============================================================================
+# 5. Install compiled C++ executables
+# ==============================================================================
 
 install(
   TARGETS
@@ -105,12 +155,14 @@ install(
     compute_fk
     record_tf_path
     encoder_joint_state_bridge
+    sensor_sync
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# ------------------------------------------------------------
-# Install package resources
-# ------------------------------------------------------------
+
+# ==============================================================================
+# 6. Install package resources
+# ==============================================================================
 
 install(
   DIRECTORY
@@ -118,33 +170,34 @@ install(
     meshes
     launch
     rviz
+    config
   DESTINATION share/${PROJECT_NAME}
 )
 
-# ------------------------------------------------------------
-# Custom message generation
-# ------------------------------------------------------------
-
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/AprilTagDetection.msg"
-  "msg/AprilTagDetectionArray.msg"
-  DEPENDENCIES
-    std_msgs
-    geometry_msgs
+# The camera acquisition launch file currently lives under src/vision.
+install(
+  FILES
+    src/vision/camera_pose/webcam_handeye_720p_150hz.launch.py
+  DESTINATION share/${PROJECT_NAME}/launch
 )
 
-ament_export_dependencies(rosidl_default_runtime)
 
-
-# ------------------------------------------------------------
-# Install Python ROS 2 node
-# ------------------------------------------------------------
+# ==============================================================================
+# 7. Install Python calibration tools
+# ==============================================================================
 
 install(
   PROGRAMS
-    src/vision/camera_pose/webcam_apriltag_publisher.py
+    src/vision/camera_pose/capture_calibration_images.py
+    src/vision/camera_pose/calibrate_camera.py
+    src/vision/camera_pose/offline_handeye_from_rosbag.py
   DESTINATION lib/${PROJECT_NAME}
-  RENAME webcam_apriltag_publisher
 )
 
+
+# ==============================================================================
+# 8. Finalize the ament package
+# ==============================================================================
+
 ament_package()
+

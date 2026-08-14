@@ -17,7 +17,7 @@ Required:
 import cv2
 import os
 
-CAMERA_ID = 3   
+CAMERA_ID = 0   
 IMAGE_WIDTH = 1280
 IMAGE_HEIGHT = 720
 TARGET_FPS = 150

@@ -1,0 +1,5 @@
+matplotlib==3.11.1
+opencv_python==4.10.0.84
+rclpy==7.1.6
+sensor_msgs==5.3.8
+supercamera==0.1.0

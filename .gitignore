@@ -1,6 +1,9 @@
+<<<<<<< ours
 # Python cache
 __pycache__/
 *.pyc
+venv/
+.venv/
 
 # Vision dataset
 vision_dataset/
@@ -16,3 +19,29 @@ ORB_SLAM3-master/
 ORB_SLAM3-master.zip
 
 
+# Optional: calibration files
+*.npz
+
+# HDF5 local recordings
+*.h5
+=======
+# ROS build
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Datasets
+*.h5
+*.mcap
+*.bag
+*.db3
+
+# IDE
+.vscode/
+.idea/
+>>>>>>> theirs

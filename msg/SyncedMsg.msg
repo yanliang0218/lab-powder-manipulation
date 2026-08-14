@@ -1,0 +1,6 @@
+std_msgs/Header synced_header
+string frame_id
+geometry_msgs/PoseStamped fk_pose
+sensor_msgs/JointState joint_angles
+sensor_msgs/CompressedImage image_raw
+

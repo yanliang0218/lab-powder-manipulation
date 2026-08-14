@@ -45,6 +45,9 @@ def generate_launch_description():
         Node(
             package='joint_state_publisher_gui',
             executable='joint_state_publisher_gui',
+            parameters=[
+      		  {'rate': 400}
+    	    ],
             remappings=[
             	('/joint_states','/joint_states_gui')
             ],
@@ -61,11 +64,11 @@ def generate_launch_description():
 	    executable='record_tf_path',
 	    name='tf_path_recorder',
 	    output='screen'
-	),
+	    ),
       Node(
 	    package='arm_v2_description',
 	    executable='encoder_joint_state_bridge',
 	    name='encoder_joint_state_bridge',
 	    output='screen'
-	)
+	    )
     ])

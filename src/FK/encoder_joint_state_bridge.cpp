@@ -38,6 +38,7 @@ Description: this code has two event pipelines: a 50Hz serial_timer drives recep
 class EncoderJointStateBridge : public rclcpp::Node
 {
 public:
+    //constructor for the class EncoderJointStateBridge, which is a subclass of rclcpp::Node
     EncoderJointStateBridge()
     : Node("encoder_joint_state_bridge")
     {
@@ -86,9 +87,9 @@ public:
         this->max_angle_rad_ = this->declare_parameter<double>("max_angle_rad", 3.14159265359);
         this->min_angle_rad_ = this->declare_parameter<double>("min_angle_rad", -3.14159265359);
        
-
-        //setting the serial sampling period to 0.005s, meaning a sampling freq of 200Hz
-        this->serial_sampling_period_ = this->declare_parameter<double> ("serial_sampling_period",0.005);
+        //setting the serial sampling period to 0.0025s, meaning a sampling freq of 400Hz
+        // prev: this->serial_sampling_period_ = this->declare_parameter<double> ("serial_sampling_period",0.005);
+         this->serial_sampling_period_ = this->declare_parameter<double> ("serial_sampling_period",0.0025);
 
         this->serial_timer_ = this->create_wall_timer(
             std::chrono::duration<double>(this->serial_sampling_period_),
@@ -101,7 +102,13 @@ public:
 
         //-----------------------------------------------------------------------------------------------------
         //recording start time, used so saved timestamps are relative to node/simulation start
-        this->recording_start_time_ = this->now();
+        //this->recording_start_time_ = this->now();
+
+        
+        //create a ROS2 publisher. The message type is geometry_msgs::msg::PoseStamped. The topic name is /FK_pose
+        //queue size is 10
+        this->joint_angles_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_angles",10);
+
 
         //opening the joint_angles csv file
         this->joint_angles_file_.open(joint_angles_file_path_);
@@ -179,13 +186,22 @@ private:
     double serial_sampling_period_;
 
     rclcpp::TimerBase::SharedPtr serial_timer_;
-     
-    //a file stream object for writing joint angles to a CSV file
-    rclcpp::Time recording_start_time_;
 
+    //private variable to store the latest time when encoder readings are received
+    //initialized to 0,0, RCL_ROS_TIME
+    //This timestamp is assigned to both /joint_angles and /joint_states.
+    //robot_state_publisher propagates the /joint_states timestamp into TF,
+    //so record_tf_path ultimately records the same acquisition time.
+    
+    rclcpp::Time latest_encoder_receive_time_{0, 0, RCL_ROS_TIME};
+     
     std::ofstream joint_angles_file_;
     std::string joint_angles_file_path_ = "joint_angles.csv";
 
+    //private publisher variable that publishes the current joint angles to /joint_angles topic for sensor synchronization
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_angles_publisher_;
+
+  
     //helper functon to read angle using the angle value extraction layer from an identified line in serial_buffer_
     //line is passed as a constant reference as it cannot be changed, while angle_rad will be updated 
     //to the actual parsed angle value
@@ -231,7 +247,7 @@ private:
     //this valid serial_fd_ is then passed to the following function receiveEncoderAngleFromArduinoSerial()
     void openSerialPort()
     {
-        this->serial_fd_ = open("/dev/ttyACM0", O_RDWR | O_NOCTTY | O_NDELAY);
+        this->serial_fd_ = open(this->serial_port_.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
 
         if (this->serial_fd_ <0)
         {
@@ -247,7 +263,7 @@ private:
 
     //everytime the serial timer fires, attempt to read a message from Arduino serial
     void receiveEncoderAngleFromArduinoSerial()
-    {
+    {   
         //if the serial port failed to open, exit this function immediately
         if (this->serial_fd_<0)
         {
@@ -274,6 +290,9 @@ private:
 
             else
             {
+                this->latest_encoder_receive_time_ = this->now();
+                int64_t timestamp_ns = this->latest_encoder_receive_time_.nanoseconds();
+
                 /*
                 read() reads raw bytes from Arduino
                 read_buffer temporarily stores these raw bytes
@@ -303,7 +322,6 @@ private:
                     //erase the full line from serial_buffer_ up to the newline character
                     this->serial_buffer_.erase(0,newline_pos+1); 
 
-
                     std::vector<double> parsed_angles_rad(6,0.0);
                     if (!this->parseAngleRadFromLine(line,parsed_angles_rad))
                     {
@@ -312,9 +330,7 @@ private:
                     
                     for (size_t i = 0; i<this->angle_extraction_identifiers_.size();i++)
                     {
-                        // initialize the parsed_angle_rad variable to 0.0, this variable will hold the parsed angle if parsed successfully
-                        
-                    
+
                         //check if the parse angle rad is in range
                         if (parsed_angles_rad[i] < this->min_angle_rad_ || parsed_angles_rad[i] > this->max_angle_rad_)
                         {
@@ -328,19 +344,35 @@ private:
                         {   //initialized to 0.0 in private:
                             this->latest_encoder_joint_angles_rad_[i] = parsed_angles_rad[i];
                             //initialized to false in private:
-                            
                         }
                     }
                     this->if_encoder_angles_valid_ = true;
 
+                    //publish the latest encoder joint angles to /joint_angles topic for sensor synchronization
+                    sensor_msgs::msg::JointState encoder_msg;
+
+                    encoder_msg.header.stamp = this->latest_encoder_receive_time_;
+
+                    encoder_msg.name = {
+                        "joint_1",
+                        "joint_2",
+                        "joint_3",
+                        "joint_4",
+                        "joint_5",
+                        "joint_6"
+                    };
+
+                    encoder_msg.position = latest_encoder_joint_angles_rad_;
+
+                    this->joint_angles_publisher_->publish(encoder_msg);
+
                     //record the latest encoder joint angles to the CSV file
-                    writeAnglestoCSV(this->latest_encoder_joint_angles_rad_);
-                
-                    
+                    writeAnglestoCSV(this->latest_encoder_joint_angles_rad_,timestamp_ns);
+   
                 }    
 
             }
-                
+      
         }
     }
 
@@ -409,7 +441,6 @@ private:
 
                     else if (this->joint_names_from_encoder_[j] == "high_joint_A" || this->joint_names_from_encoder_[j] == "high_joint_B" 
                     ||this->joint_names_from_encoder_[j] == "high_joint_C")  
-
                     {
                         
                         //compute the corrected angle after joint calibration
@@ -452,12 +483,15 @@ private:
                 
             } 
         }
+        
+
+
         return;
 
     }
 
 
-    void guiJointStateCallback(const sensor_msgs::msg::JointState::ConstSharedPtr msg)
+    void guiJointStateCallback(const std::shared_ptr<const sensor_msgs::msg::JointState> msg)
     {
         //ROS sends GUI message msg, the two consts mean the pointer cannot be reassigned
         //the msg cannot be modifed either 
@@ -467,8 +501,17 @@ private:
         sensor_msgs::msg::JointState output_msg = *msg;
         
         //set header stamp of this output_msg
-        output_msg.header.stamp = this->now();
-        
+        //this is using the ROS clock, which starts at 1970-01-01 00:00:00 UTC
+        if (!this->if_encoder_angles_valid_)
+        {
+            RCLCPP_WARN(this->get_logger(),"Encoder angles not yet valid, using GUI joint angles for now");
+            output_msg.header.stamp = this->now();
+        }
+        else
+        {
+            output_msg.header.stamp = this->latest_encoder_receive_time_;
+        }
+       
         //pass this output_msg into the replaceWithPhysicalJoints() function
         //where physical joint angles in this output_msg are replaced by 
         //encoders readings from [functional block 2!]
@@ -479,19 +522,16 @@ private:
     }
 
     //-----------------------------------------------------------------------------------------------------
-    void writeAnglestoCSV(const std::vector<double>&angles_rad)
+    void writeAnglestoCSV(const std::vector<double>&angles_rad,const int64_t callback_time_ns)
     {
         if(!this->joint_angles_file_.is_open())
         {
             return;
         }
         
-        //record current time since simulation start in seconds
-        rclcpp::Time now = this->now();
-        double time_since_start_sec = (now - this->recording_start_time_).nanoseconds();
         
         //write the timestamp and angles to the CSV file
-        this->joint_angles_file_ << time_since_start_sec;
+        this->joint_angles_file_ << callback_time_ns;
 
         for (const auto& angle : angles_rad)
         {

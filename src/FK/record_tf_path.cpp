@@ -67,8 +67,7 @@ public:
         */
         this->fixed_frame_ = this->declare_parameter<string> ("fixed_frame","base_link");
         this->target_frame_ = this->declare_parameter<string> ("target_frame","tip_link");
-        this->sampling_period_ = this->declare_parameter<double> ("sampling_period",0.05);
-
+        this->sampling_period_ = this->declare_parameter<double> ("sampling_period",0.0025);
         // RCLCPP_INFO(this->get_logger(), "fixed_frame: %s", this->fixed_frame_.c_str());
         // RCLCPP_INFO(this->get_logger(), "target_frame: %s", this->target_frame_.c_str());
         // RCLCPP_INFO(this->get_logger(), "sampling_period: %.3f", this->sampling_period_);
@@ -79,6 +78,11 @@ public:
         //create a ROS2 publisher. The message type is nav_msgs::msg::Path. The topic name is /end_effector_path
         //queue size is 10
         this->path_publisher_ = this->create_publisher<nav_msgs::msg::Path>("/end_effector_path",10);
+
+        //create a ROS2 publisher. The message type is geometry_msgs::msg::PoseStamped. The topic name is /FK_pose
+        //queue size is 10
+        this->FK_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/FK_pose",10);
+
 
         yaml_file_.open(yaml_file_path_);
 
@@ -107,7 +111,7 @@ public:
         );
 
         //recording start time, used so saved timestamps are relative to node/simulation start
-        this->recording_start_time_ = this->now();
+        //this->recording_start_time_ = this->now();
 
     }
 
@@ -127,11 +131,15 @@ private:
     //tf2_ros::TransformListener tf_listener_
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
-
+    
+    //private path variable that stores the accumulated end effector path
     nav_msgs::msg::Path path_;
+    //private publisher variable that publishes the accumulated end effector path to /end_effector_path
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_publisher_;
+    //private publisher variable that publishes the current pose from FK to /FK_pose
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr FK_pose_publisher_;
 
-    rclcpp::Time recording_start_time_;
+    //rclcpp::Time recording_start_time_;
     std::ofstream yaml_file_;
     std::string yaml_file_path_ = "trajectory.yaml";
 
@@ -144,9 +152,9 @@ private:
         }
 
         this->yaml_file_ << "  - header:\n";
-        double time_since_start_sec = (rclcpp::Time(pose_msg.header.stamp) - this->recording_start_time_).nanoseconds();
+        //double time_since_start_sec = (rclcpp::Time(pose_msg.header.stamp) - this->recording_start_time_).nanoseconds();
 
-        this->yaml_file_ << "      time_since_start_sec: " << time_since_start_sec << "\n";
+        this->yaml_file_ << "      time_nanosec: " << rclcpp::Time(pose_msg.header.stamp).nanoseconds() << "\n";
         this->yaml_file_ << "      frame_id: " << pose_msg.header.frame_id << "\n";
 
         this->yaml_file_ << "    pose:\n";
@@ -165,13 +173,10 @@ private:
     }
 
 
-    
-
-
     //function called every time the wall timer fires
     void timerCallback()
     {
-        RCLCPP_INFO(this->get_logger(), "timer is running");
+        //RCLCPP_INFO(this->get_logger(), "timer is running");
 
         geometry_msgs::msg::TransformStamped current_transform;
         
@@ -199,8 +204,11 @@ private:
         current_pose_stamped.pose.orientation.z = current_transform.transform.rotation.z;
         current_pose_stamped.pose.orientation.w = current_transform.transform.rotation.w;
 
-        current_pose_stamped.header.stamp = this->now();
+        current_pose_stamped.header.stamp = current_transform.header.stamp;
         current_pose_stamped.header.frame_id = fixed_frame_;
+
+        //publish path to /FK_pose topic for sensor synchronization
+        this->FK_pose_publisher_->publish(current_pose_stamped);
 
         //append this current pose stamped to path_
         this->path_.poses.push_back(current_pose_stamped);
@@ -210,7 +218,7 @@ private:
 
         //publish path to /end_effector_path topic for visualization
         this->path_publisher_->publish(this->path_);
-        RCLCPP_INFO(this->get_logger(), "Publishing path with %zu poses.", this->path_.poses.size());
+        //RCLCPP_INFO(this->get_logger(), "Publishing path with %zu poses.", this->path_.poses.size());
     }
 };
 

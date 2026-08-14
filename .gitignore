@@ -15,5 +15,4 @@ images/
 ORB_SLAM3-master/
 ORB_SLAM3-master.zip
 
-# Optional: calibration files
-*.npz
+

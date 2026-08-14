@@ -25,7 +25,7 @@ import os
 
 # NUmber of corner points on the Chessboard
 # 10x7 chessboard => 9x6 inner corners
-CHECKERBOARD = (9, 6)
+CHECKERBOARD = (8, 5)
 
 # Every square's size in meters, e.g., 25 mm = 0.025 m
 SQUARE_SIZE = 0.025

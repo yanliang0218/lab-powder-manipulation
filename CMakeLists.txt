@@ -12,6 +12,8 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # ------------------------------------------------------------
 # KDL tree printer
@@ -117,6 +119,32 @@ install(
     launch
     rviz
   DESTINATION share/${PROJECT_NAME}
+)
+
+# ------------------------------------------------------------
+# Custom message generation
+# ------------------------------------------------------------
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/AprilTagDetection.msg"
+  "msg/AprilTagDetectionArray.msg"
+  DEPENDENCIES
+    std_msgs
+    geometry_msgs
+)
+
+ament_export_dependencies(rosidl_default_runtime)
+
+
+# ------------------------------------------------------------
+# Install Python ROS 2 node
+# ------------------------------------------------------------
+
+install(
+  PROGRAMS
+    src/vision/camera_pose/webcam_apriltag_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME webcam_apriltag_publisher
 )
 
 ament_package()

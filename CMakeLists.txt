@@ -36,6 +36,8 @@ find_package(rosidl_default_generators REQUIRED)
 # ==============================================================================
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/AprilTagDetection.msg"
+  "msg/AprilTagDetectionArray.msg"
   "msg/SyncedMsg.msg"
   DEPENDENCIES
     std_msgs
@@ -121,7 +123,7 @@ ament_target_dependencies(
 # optional joint angles for offline hand-eye calibration.
 add_executable(
   sensor_sync
-  src/sync/sensor_sync_offline_tag.cpp
+  src/sync/sensor_sync.cpp
 )
 
 ament_target_dependencies(
@@ -174,14 +176,6 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
-# The camera acquisition launch file currently lives under src/vision.
-install(
-  FILES
-    src/vision/camera_pose/webcam_handeye_720p_150hz.launch.py
-  DESTINATION share/${PROJECT_NAME}/launch
-)
-
-
 # ==============================================================================
 # 7. Install Python calibration tools
 # ==============================================================================
@@ -195,9 +189,17 @@ install(
 )
 
 
+
+# Continuous AprilTag visibility/count monitor used by display.launch.py.
+install(
+  PROGRAMS
+    src/vision/camera_pose/apriltag_count_monitor.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME apriltag_count_monitor
+)
+
 # ==============================================================================
 # 8. Finalize the ament package
 # ==============================================================================
 
 ament_package()
-

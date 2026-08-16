@@ -167,13 +167,13 @@ private:
         synced_msg_pub_->publish(latest_synced_msg);
         ++published_count_;
 
-        if (published_count_ % 500 == 0)
-        {
-            RCLCPP_INFO(
-                get_logger(),
-                "Packaged %llu unique image/FK groups",
-                static_cast<unsigned long long>(published_count_));
-        }
+        // if (published_count_ % 500 == 0)
+        // {
+        //     RCLCPP_INFO(
+        //         get_logger(),
+        //         "Packaged %llu unique image/FK groups",
+        //         static_cast<unsigned long long>(published_count_));
+        // }
     }
 };
 

@@ -220,7 +220,6 @@ def generate_launch_description():
     # --------------------------------------------------------------------------
     # Lightweight AprilTag count monitor; runs continuously until shutdown.
     # --------------------------------------------------------------------------
-
     apriltag_count_monitor = ExecuteProcess(
         cmd=[
             "ros2",
@@ -354,7 +353,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "video_device",
-                default_value="/dev/video0",
+                default_value="/dev/video48",
                 description="Linux V4L2 camera device",
             ),
             DeclareLaunchArgument(

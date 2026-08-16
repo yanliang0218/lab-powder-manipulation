@@ -4,7 +4,9 @@ from scipy.spatial.transform import Rotation as R
 from pupil_apriltags import Detector
 import rosbag2_py
 import os
+import glob
 import argparse
+import json
 from rclpy.serialization import deserialize_message
 from sensor_msgs.msg import CompressedImage
 
@@ -28,22 +30,124 @@ IMAGE_TOPIC = "/webcam/image_raw/compressed"
 
 #Keep these values the same as webcam_apriltag_publisher.py.
 TAG_FAMILY = "tag25h9"
-TAG_SIZE = 0.09
+TAG_SIZE = 0.04
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CALIB_FILE = os.path.normpath(
     os.path.join(script_dir, "..", "..", "config", "camera_calibration.npz")
 )
 
+DEFAULT_HANDEYE_FILE = os.path.normpath(
+    os.path.join(script_dir, "..", "..", "config", "handeye_result.json")
+)
 
-#known pose of each AprilTag in the global frame
+DEFAULT_SYNCED_MSG_TXT = "/home/liangyan/ros2_ws/synced_msg.txt"
+if not os.path.exists(DEFAULT_SYNCED_MSG_TXT):
+    DEFAULT_SYNCED_MSG_TXT = os.path.normpath(
+        os.path.join(script_dir, "synced_msg.txt")
+    )
+
+
+def find_latest_bag_dataset(base_dir="/home/liangyan/ros2_ws"):
+    dataset_dirs = sorted(glob.glob(os.path.join(base_dir, "arm_dataset_*")))
+    if not dataset_dirs:
+        return os.path.join(base_dir, "arm_dataset_missing")
+    return dataset_dirs[-1]
+
+
+#initialize known pose of each AprilTag in the global frame
 G_T_tag_dictionary = {
-    0: np.eye(4),
-    6: np.eye(4),
 }
+
+#all tags share the same orientation in global frame
+G_R_tag = np.array([
+    [0, 1,  0],
+    [1, 0,  0],
+    [0, 0, -1]
+])
+
 
 #the fused G_T_camera pose is expressed in this global frame
 GLOBAL_FRAME_ID = "base_link"
+
+max_tag_id = 11
+tag_half_size_x = 0.032
+tag_half_size_y = 0.029
+z_offset = -0.003
+num_tags_per_column = 3
+num_col = 4
+spacing = 0.004
+tag_grid_origin_x = 0.39
+tag_grid_origin_y = -0.09
+
+def generate_G_T_tag_grid(
+    max_tag_id,
+    tag_half_size_x,
+    tag_half_size_y,
+    z_offset,
+    num_tags_per_column,
+    num_col,
+    spacing,
+    tag_grid_origin_x,
+    tag_grid_origin_y,
+):
+
+    tag_coord_dictionary = {}
+
+    for ID in range(max_tag_id+1):
+        # Printed output equivalent to MATLAB's "ID" line
+        print(ID)
+
+        # y = 2.9 + mod(ID, 3) * (2.9 * 2 + 0.4) cm
+        y = tag_half_size_y + (ID % num_tags_per_column) * (tag_half_size_y * 2 + spacing)
+
+        x = np.nan
+
+        # Replaces hardcoded range(1, 5) with range(1, num_col + 1) cm
+        for i in range(1, num_col + 1):
+            if ID < i * num_tags_per_column:
+                # x = 3.2 + (i-1) * (2 * 3.2 + 0.2)
+                x = tag_half_size_x + (i - 1) * (2 * tag_half_size_x + spacing)
+
+                if not np.isnan(x):
+                    # Plotted point equivalent: x + origin_tag_x, y + origin_tag_y
+                    plot_x = x + tag_grid_origin_x
+                    plot_y = y + tag_grid_origin_y
+
+                    # Storing coordinates with z_offset in dictionary
+                    tag_coord_dictionary[ID] = [plot_x, plot_y, z_offset]
+
+                    break  # Stop checking further columns for this ID so that the inner loop runs once for every ID
+
+
+    return tag_coord_dictionary
+
+
+
+# build the global tag dictionary once, reusing the existing module-level variable
+G_T_tag_dictionary = {}
+
+tag_pos_dict = generate_G_T_tag_grid(
+    max_tag_id,
+    tag_half_size_x,
+    tag_half_size_y,
+    z_offset,
+    num_tags_per_column,
+    num_col,
+    spacing,
+    tag_grid_origin_x,
+    tag_grid_origin_y,
+)
+
+print("tag_pos_dict =")
+print(tag_pos_dict)
+
+for tag_id, pos in tag_pos_dict.items():
+    T = np.eye(4)
+    T[:3, :3] = G_R_tag
+    T[:3, 3] = np.asarray(pos, dtype=np.float64)
+    G_T_tag_dictionary[tag_id] = T
+
 
 def pose_to_T(pose):
 
@@ -82,7 +186,7 @@ def apriltag_detection_to_C_T_tag(detection):
 
     This function simply converts the estimated pose into a 4x4 homogeneous transformation matrix C_T_tag.
     """
-
+    #simply populating the rotation and translation into a 4x4 homogeneous transformation matrix
     C_T_tag = np.eye(4)
     C_T_tag[:3, :3] = detection.pose_R
     C_T_tag[:3, 3] = np.asarray(detection.pose_t).reshape(3)
@@ -324,6 +428,7 @@ def read_tag_poses_from_bag(bag_path, calib_file):
         #this is to use a consistent format as the fusion logic
         frames.append({
             'timestamp_ns': image_timestamp_ns,
+            'G_T_tag_dictionary': G_T_tag_dictionary,
             'bag_timestamp_ns': bag_timestamp_ns,
             'stamp_sec': stamp_sec,
             'stamp_nanosec': stamp_nanosec,
@@ -554,7 +659,7 @@ def fuse_T_matrix(G_T_camera_array, weights, max_iters=20, tol=1e-6):
 
                       in SE(3), this is analogous to: T_{k+1} = T_k * exp(-alpha * sum_j w_j * log(T_k^{-1} * T_j)), where exp and log are the exponential and logarithm maps between SE(3) and se(3)
     """
-    # 1. Normalize weights by division with total sum to ensure they sum to 1
+    # 1. Normalize weights to sum to 1
     weights = np.array(weights, dtype=float) / np.sum(weights)
     
     # 2. Initialize with initial guess for fused pose(e.g., first matrix or copy)
@@ -600,6 +705,7 @@ def fuse_all_frames(frames):
         G_T_camera_array = frame['G_T_camera_array']
 
         #if no tag was detected at this frame, there is no fused pose
+        #frame is a dictionary！
         if len(G_T_camera_array) == 0:
             frame['fused_T'] = None
             continue
@@ -638,6 +744,81 @@ def fuse_all_frames(frames):
 
     return frames
 
+
+
+def transform_fused_camera_poses_to_gripper(frames, handeye_file):
+
+    """
+    Transform the fused camera poses into gripper poses using the hand-eye calibration result.
+
+        Up to this point, tag detection has been run on image_raw inputs, and the resulting
+        poses are C_T_tag, which are then converted to G_T_camera using the known G_T_tag poses.
+
+        Therefore, G_T_camera = G_T_tag @ inverse(C_T_tag).
+
+        The hand-eye calibration stores the camera-to-gripper transform, T_camera_gripper.
+        Thus, the base-frame gripper pose is:
+            G_T_gripper = G_T_camera @ T_camera_gripper
+
+    """
+
+    handeye_file = Path(handeye_file)
+
+    if not handeye_file.exists():
+        raise FileNotFoundError(
+            f"Cannot find hand-eye calibration file: {handeye_file}"
+        )
+
+    with open(handeye_file, "r") as file:
+        handeye_result = json.load(file)
+
+    if "camera_to_gripper_matrix" not in handeye_result:
+        raise KeyError(
+            "hand-eye JSON does not contain 'camera_to_gripper_matrix'"
+        )
+
+    gripper_T_camera = np.asarray(
+        handeye_result["camera_to_gripper_matrix"],
+        dtype=np.float64
+    )
+
+    camera_T_gripper = np.linalg.inv(gripper_T_camera)
+
+    if camera_T_gripper.shape != (4, 4):
+        raise ValueError(
+            "camera_to_gripper_matrix must be a 4x4 homogeneous transform"
+        )
+
+    transformed_count = 0
+
+    for frame in frames:
+
+        if frame['fused_T'] is None:
+            frame['global_camera_T'] = None
+            continue
+
+        # Before this line:
+        # frame['fused_T'] = global_T_camera
+        global_T_camera = frame['fused_T']
+
+        # Preserve the original fused camera pose.
+        frame['global_camera_T'] = np.copy(global_T_camera)
+
+        # Convert the fused camera pose into the gripper pose using the
+        # eye-in-hand calibration in the camera->gripper direction.
+        frame['fused_T'] = (
+            global_T_camera
+            @ camera_T_gripper
+        )
+
+        transformed_count += 1
+
+    print(
+        f"Applied hand-eye transform to {transformed_count} fused poses: "
+        f"global_T_gripper = global_T_camera @ T_camera_gripper"
+    )
+
+    return frames
 
 def fused_pose_text(frame, indent=''):
 
@@ -792,6 +973,38 @@ def insert_offline_results_into_synced_msg_txt(
         for frame in frames
     }
 
+    def find_frame_for_stamp(stamp_key, max_sec_diff=1):
+        """Match the synced-image stamp to the closest offline bag frame.
+
+        Exact matches are preferred, but a small session-to-session clock offset
+        can occur between the rosbag and a saved text dump. Accept a near match
+        only when it is within a very small time window.
+        """
+        exact = frame_by_image_stamp.get(stamp_key)
+        if exact is not None:
+            return exact, 0
+
+        best_frame = None
+        best_delta_ns = None
+
+        for frame in frames:
+            frame_stamp = (
+                int(frame['stamp_sec']),
+                int(frame['stamp_nanosec'])
+            )
+            sec_delta = abs(frame_stamp[0] - stamp_key[0])
+            ns_delta = abs(frame_stamp[1] - stamp_key[1])
+            total_delta_ns = sec_delta * 1_000_000_000 + ns_delta
+
+            if sec_delta <= max_sec_diff and (best_delta_ns is None or total_delta_ns < best_delta_ns):
+                best_delta_ns = total_delta_ns
+                best_frame = frame
+
+        if best_frame is None:
+            return None, None
+
+        return best_frame, best_delta_ns
+
     synced_text = Path(synced_msg_txt_path).read_text()
 
     if not synced_text.strip():
@@ -831,34 +1044,43 @@ def insert_offline_results_into_synced_msg_txt(
             int(image_stamp.group(2))
         )
 
-        frame = frame_by_image_stamp.get(stamp_key)
+        frame, delta_ns = find_frame_for_stamp(stamp_key)
 
         if frame is None:
             output_blocks.append(block.rstrip())
             continue
 
+        if delta_ns not in (None, 0):
+            print(
+                "Using near timestamp match for synced text stamp "
+                f"{stamp_key} -> bag stamp ({frame['stamp_sec']}, {frame['stamp_nanosec']}) "
+                f"(delta_ns={delta_ns})"
+            )
+
         matched_count += 1
 
-        #remove old online detections if they are present.
-        #In the original SyncedMsg text, detections is the final field.
+        # Remove any old detections/fused pose block if one was already injected.
         block_without_old_detections = re.sub(
             r"(?ms)^detections:\n.*\Z",
             "",
             block
         ).rstrip()
+        block_without_old_detections = re.sub(
+            r"(?ms)^fused_pose:\n.*\Z",
+            "",
+            block_without_old_detections
+        ).rstrip()
 
-        #offline detections generated from this exact image
+        # Offline detections generated from this exact image.
         detections_block = detections_msg_text(
             frame['detections_msg']
         ).rstrip()
 
-        #offline fused camera pose generated from these detections
+        # Offline fused camera pose generated from these detections.
         if frame['fused_T'] is None:
             fused_block = "fused_pose: null"
-
         else:
             position, quaternion = T_to_pose(frame['fused_T'])
-
             fused_block = (
                 "fused_pose:\n"
                 "  header:\n"
@@ -884,21 +1106,16 @@ def insert_offline_results_into_synced_msg_txt(
             + fused_block
         )
 
-        #insert directly after delta_t_ns
-        block_with_offline_results = re.sub(
-            r"(^delta_t_ns: .*?$)",
-            lambda match:
-                match.group(1)
-                + "\n"
-                + offline_results,
-            block_without_old_detections,
-            count=1,
-            flags=re.MULTILINE
-        )
+        # The current synced-message text format does not contain a delta_t_ns field.
+        # Append the offline results at the end of each matched block instead.
+        block_with_offline_results = (
+            block_without_old_detections.rstrip()
+            + "\n"
+            + offline_results
+            + "\n"
+        ).rstrip()
 
-        output_blocks.append(
-            block_with_offline_results.rstrip()
-        )
+        output_blocks.append(block_with_offline_results)
 
     Path(output_path).write_text(
         "\n---\n".join(output_blocks)
@@ -906,9 +1123,32 @@ def insert_offline_results_into_synced_msg_txt(
     )
 
     if matched_count == 0 and len(output_blocks) > 0:
+        text_samples = []
+        bag_samples = []
+
+        for block in message_blocks:
+            if not block.strip():
+                continue
+            m = re.search(
+                r"(?ms)^image_raw:\n\s*header:\n\s*stamp:\n\s*sec: (\d+)\n\s*nanosec: (\d+)",
+                block
+            )
+            if m is not None:
+                text_samples.append((int(m.group(1)), int(m.group(2))))
+                if len(text_samples) >= 3:
+                    break
+
+        for frame in frames[:3]:
+            bag_samples.append((int(frame['stamp_sec']), int(frame['stamp_nanosec'])))
+
+        print(
+            "Timestamp match debug: synced_msg text samples = "
+            f"{text_samples}, bag frame samples = {bag_samples}"
+        )
         raise ValueError(
             "No timestamp matches between offline bag frames and synced_msg text. "
-            "Use a bag_path from the same recording session as synced_msg.txt."
+            "This usually means the bag_path and synced_msg.txt come from different "
+            "recording sessions. Use the same rosbag as the text dump."
         )
 
     print(
@@ -927,7 +1167,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--bag-path",
-        default="/home/liangyan/ros2_ws/arm_dataset_20260811_020325",
+        default="/home/liangyan/ros2_ws/arm_dataset_20260816_031556",
         help="Path to rosbag folder that contains /webcam/image_raw/compressed"
     )
     parser.add_argument(
@@ -936,8 +1176,13 @@ if __name__ == "__main__":
         help="Path to camera calibration .npz"
     )
     parser.add_argument(
+        "--handeye-file",
+        default=str(DEFAULT_HANDEYE_FILE),
+        help="Path to eye-in-hand hand-eye calibration JSON"
+    )
+    parser.add_argument(
         "--synced-msg-txt",
-        default="synced_msg.txt",
+        default=DEFAULT_SYNCED_MSG_TXT,
         help="Path to synced message text dump"
     )
     parser.add_argument(
@@ -967,6 +1212,7 @@ if __name__ == "__main__":
     #existing text dump of /synced_msg
     synced_msg_txt_path = args.synced_msg_txt
 
+
     #read every recorded compressed image from the rosbag,
     #perform AprilTag detection, and then estimate C_T_tag
     frames = read_tag_poses_from_bag(
@@ -979,6 +1225,14 @@ if __name__ == "__main__":
 
     #perform one pose fusion independently for all detections in each image
     frames = fuse_all_frames(frames)
+
+
+    #convert every fused global_T_camera pose into global_T_gripper using:
+    #global_T_gripper = global_T_camera @ inverse(gripper_T_camera)
+    frames = transform_fused_camera_poses_to_gripper(
+        frames,
+        args.handeye_file
+    )
 
 
     #same output as before

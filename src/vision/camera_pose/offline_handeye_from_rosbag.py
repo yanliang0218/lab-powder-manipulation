@@ -47,7 +47,12 @@ def parse_args():
     parser.add_argument("--topic", default="/synced_msg")
     parser.add_argument("--tag-family", default="tag25h9")
     parser.add_argument("--tag-id", type=int, default=0)
-    parser.add_argument("--tag-size", type=float, default=0.09, help="metres")
+    parser.add_argument(
+        "--tag-size",
+        type=float,
+        default=0.04,
+        help="metres (AprilTag size is 4 cm)",
+    )
     parser.add_argument("--detector-threads", type=int, default=4)
     parser.add_argument(
         "--quad-decimate",

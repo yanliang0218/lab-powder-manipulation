@@ -1,7 +1,42 @@
 <<<<<<< ours
 # Python cache
 __pycache__/
-*.pyc
+# ROS 2 generated directories
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Raw rosbag data
+arm_dataset_*/
+handeye_bags/
+rosbag2_*/
+*.db3
+*.db3-shm
+*.db3-wal
+*.mcap
+
+# Large runtime text dumps
+FK_pose.txt
+image_raw.txt
+joint_angles.txt
+synced_msg.txt
+
+# Calibration capture intermediates
+src/vision/camera_pose/images/
+undistortion_comparison.png
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Final hand-eye result is intentionally tracked
+!config/handeye_result.json*.pyc
 venv/
 .venv/
 

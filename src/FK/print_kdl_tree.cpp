@@ -1,3 +1,13 @@
+/**********************************************************************************
+Project: Lab Powder Manipulation 
+Name: print_kdl_tree.cpp
+Author: Liang Yan
+Description: 
+    This program reads a URDF file and extracts the KDL tree.
+    It prints out the number of segments, number of joints, and details about each segment and joint in the tree.
+**********************************************************************************/
+
+
 #include <iostream>
 #include <string>
 

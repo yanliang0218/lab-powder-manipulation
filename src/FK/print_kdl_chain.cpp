@@ -1,3 +1,13 @@
+/**********************************************************************************
+Project: Lab Powder Manipulation 
+Name: print_kdl_chain.cpp
+Author: Liang Yan
+Description: 
+    This program reads a URDF file and extracts the KDL chain between the specified base link and tip link.
+    It prints out the number of segments, number of moving joints, and details about each segment and joint in the chain.
+**********************************************************************************/
+
+
 #include <iostream>
 #include <string>
 
